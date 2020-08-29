@@ -46,7 +46,7 @@ entity project_reti_logiche is
 end project_reti_logiche;
 
 architecture Behavioral of project_reti_logiche is
-    type state is (INIT0, INIT1, INIT2, INIT3, INIT4, INIT5, INIT6, INIT7, END_INIT, RESET, START, WZ_CHECK, WZ_CALC_OFF, WZ_WRITE, WZ_DONE, NO_WZ_WRITE, NO_WZ_DONE);
+    type state is (INIT0, INIT1, INIT2, INIT3, INIT4, INIT5, INIT6, INIT7, END_INIT, RESET, START, WZ_CHECK, WZ_DECIDE, WZ_CALC_OFF, WZ_WRITE, WZ_DONE, NO_WZ_WRITE, NO_WZ_DONE);
     constant WZ_0: std_logic_vector(15 downto 0):= "0000000000000000";
     constant WZ_1: std_logic_vector(15 downto 0):= "0000000000000001";
     constant WZ_2: std_logic_vector(15 downto 0):= "0000000000000010"; 
@@ -57,10 +57,10 @@ architecture Behavioral of project_reti_logiche is
     constant WZ_7: std_logic_vector(15 downto 0):= "0000000000000111"; 
     constant ADDR_IN: std_logic_vector(15 downto 0):= "0000000000001000";
     constant ADDR_OUT: std_logic_vector(15 downto 0):= "0000000000001001";
+    constant WZ_SIZE: unsigned(7 downto 0) := "00000011";
     
-    signal next_state: state := INIT0;
-    signal curr_state: state := INIT0;
-    signal DATA: std_logic_vector(7 downto 0) := "00000000";
+    signal next_state: state := RESET;
+    signal curr_state: state := RESET;
     signal WZ_0_START: std_logic_vector(7 downto 0):= "00000000";
     signal WZ_1_START: std_logic_vector(7 downto 0):= "00000000";
     signal WZ_2_START: std_logic_vector(7 downto 0):= "00000000";
@@ -72,7 +72,6 @@ architecture Behavioral of project_reti_logiche is
     signal CURR_WZ: std_logic_vector(7 downto 0):= "00000000";  
     signal WZ_NUM: std_logic_vector(2 downto 0) := "000";       
     signal WZ_BIT: std_logic := '0';
-    signal WZ_DIFF: unsigned(1 downto 0) := "00";
     signal WZ_OFF: std_logic_vector(3 downto 0) := "0000";
     
 begin
@@ -87,9 +86,8 @@ begin
        end if;
     end process;
     
-    FSM_state_sequence: process(i_clk, i_start, curr_state)
+    FSM_state_sequence: process(i_data, i_start, curr_state)
     begin
-        if falling_edge(i_clk) then
             case curr_state is
                 when INIT0 =>
                     next_state <= INIT1;
@@ -108,16 +106,18 @@ begin
                 when INIT7 =>
                     next_state <= END_INIT;
                 when END_INIT =>
-                    next_state <= RESET;
+                    next_state <= START;
                 when RESET =>
                     if i_start = '1' then
-                        next_state <= START;
+                        next_state <= INIT0;
                     else
                         next_state <= RESET;
                     end if;
                 when START =>
                         next_state <= WZ_CHECK;
                 when WZ_CHECK =>
+                         next_state <= WZ_DECIDE;
+                when WZ_DECIDE =>
                     if WZ_BIT = '0' then
                         next_state <= NO_WZ_WRITE;
                     elsif WZ_BIT = '1' then
@@ -134,11 +134,12 @@ begin
                 when WZ_DONE =>
                     next_state <= RESET;
             end case;
-        end if;                                      
      end process;
      
     
     MAIN: process(i_clk)
+    variable DATA: std_logic_vector(7 downto 0) := "00000000";
+    variable WZ_DIFF: unsigned(7 downto 0) := "00000000";
     begin
         if falling_edge(i_clk) then
             case curr_state is
@@ -192,60 +193,61 @@ begin
                     o_we <= '0';
                     o_address <= ADDR_IN;
                 when WZ_CHECK =>
-                    DATA <= i_data;
-                    if DATA(7 downto 2) = WZ_0_START(7 downto 2) then
-                        CURR_WZ <= WZ_0_START;
+                    DATA := i_data;
+                    if (unsigned(DATA) - unsigned(WZ_0_START)) <= WZ_SIZE then
+                        WZ_DIFF := (unsigned(DATA) - unsigned(WZ_0_START));
                         WZ_NUM <= "000";
                         WZ_BIT <= '1';
-                    elsif DATA(7 downto 2) = WZ_1_START(7 downto 2) then
-                        CURR_WZ <= WZ_0_START;
+                    elsif (unsigned(DATA) - unsigned(WZ_1_START)) <= WZ_SIZE then
+                        WZ_DIFF := (unsigned(DATA) - unsigned(WZ_1_START));                        
                         WZ_NUM <= "001";
                         WZ_BIT <= '1';                    
-                    elsif DATA(7 downto 2) = WZ_2_START(7 downto 2) then
-                        CURR_WZ <= WZ_0_START;
+                    elsif (unsigned(DATA) - unsigned(WZ_2_START)) <= WZ_SIZE then
+                        WZ_DIFF := (unsigned(DATA) - unsigned(WZ_2_START));                    
                         WZ_NUM <= "010";
                         WZ_BIT <= '1';  
-                    elsif DATA(7 downto 2) = WZ_3_START(7 downto 2) then
-                        CURR_WZ <= WZ_0_START;
+                    elsif (unsigned(DATA) - unsigned(WZ_3_START)) <= WZ_SIZE then
+                        WZ_DIFF := (unsigned(DATA) - unsigned(WZ_3_START));                    
                         WZ_NUM <= "011";
                         WZ_BIT <= '1';  
-                     elsif DATA(7 downto 2) = WZ_4_START(7 downto 2) then
-                        CURR_WZ <= WZ_0_START;
+                     elsif (unsigned(DATA) - unsigned(WZ_4_START)) <= WZ_SIZE then
+                        WZ_DIFF := (unsigned(DATA) - unsigned(WZ_4_START));                     
                         WZ_NUM <= "100";
                         WZ_BIT <= '1';  
-                    elsif DATA(7 downto 2) = WZ_5_START(7 downto 2) then
-                        CURR_WZ <= WZ_0_START;
+                    elsif (unsigned(DATA) - unsigned(WZ_5_START)) <= WZ_SIZE then
+                        WZ_DIFF := (unsigned(DATA) - unsigned(WZ_5_START));                    
                         WZ_NUM <= "101";
                         WZ_BIT <= '1';  
-                    elsif DATA(7 downto 2) = WZ_6_START(7 downto 2) then
-                        CURR_WZ <= WZ_0_START;
+                    elsif (unsigned(DATA) - unsigned(WZ_6_START)) <= WZ_SIZE then
+                        WZ_DIFF := (unsigned(DATA) - unsigned(WZ_6_START));                    
                         WZ_NUM <= "110";
                         WZ_BIT <= '1';  
-                    elsif DATA(7 downto 2) = WZ_7_START(7 downto 2) then
-                        CURR_WZ <= WZ_0_START;
+                    elsif (unsigned(DATA) - unsigned(WZ_7_START)) <= WZ_SIZE then
+                        WZ_DIFF := (unsigned(DATA) - unsigned(WZ_7_START));
                         WZ_NUM <= "111";
                         WZ_BIT <= '1';  
                     else 
                         WZ_BIT <= '0';                                                                                                                                               
                     end if;
+                when WZ_DECIDE =>
+                    o_en <= '0'; --NO
                 when NO_WZ_WRITE =>
                     o_en <= '1';
                     o_we <= '1';
                     o_address <= ADDR_OUT;
-                    o_data <= WZ_BIT & i_data(6 downto 0);
+                    o_data <= WZ_BIT & DATA(6 downto 0);
                 when NO_WZ_DONE =>
                     o_en <= '0';
                     o_we <= '0';
                     o_done <= '1';
                 when WZ_CALC_OFF =>
-                    WZ_DIFF <= unsigned(DATA) - unsigned(CURR_WZ);
-                    if WZ_DIFF =  "00" then 
+                    if WZ_DIFF =  "00000000" then 
                         WZ_OFF <= "0001";
-                    elsif WZ_DIFF = "01" then
+                    elsif WZ_DIFF = "00000001" then
                         WZ_OFF <= "0010";
-                    elsif WZ_DIFF = "10" then
+                    elsif WZ_DIFF = "00000010" then
                         WZ_OFF <= "0100";
-                    elsif WZ_DIFF = "11" then
+                    elsif WZ_DIFF = "00000011" then
                         WZ_OFF <= "1000";
                     end if;                                                    
                 when WZ_WRITE =>
