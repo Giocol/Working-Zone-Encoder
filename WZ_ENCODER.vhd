@@ -86,7 +86,7 @@ begin
        end if;
     end process;
     
-    FSM_state_sequence: process(i_data, i_start, curr_state)
+    FSM_state_sequence: process(i_data, i_start, curr_state, WZ_BIT)
     begin
             case curr_state is
                 when INIT0 =>
